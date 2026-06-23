@@ -8,11 +8,9 @@ Este prototipo web simula tráfico de red y detecta anomalías tipo DDoS aplican
 
 ## 👥 Autores
 
-**Matías Bustamante, Benjamín Cheutemilla y Benjamín Mellado**
+**Matías Gajardo, Benjamín Cheuquemilla y Benjamín Mellado**
 
 Trabajo realizado en conjunto como parte del proceso formativo en la asignatura de Cálculo Diferencial.
-
-**Docente:** Marisel Hueche Caifual
 
 ---
 
