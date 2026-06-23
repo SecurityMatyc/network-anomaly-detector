@@ -1,0 +1,22 @@
+# Entorno virtual
+venv/
+env/
+.venv/
+
+# Bytecode de Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Variables de entorno / secretos
+.env
+
+# Archivos de Flask
+*.log
+instance/
+
+# Sistema / editor
+.vscode/
+.idea/
+Thumbs.db
+.DS_Store

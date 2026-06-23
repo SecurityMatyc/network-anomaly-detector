@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>SOC // Detección de Anomalías en Tráfico de Red</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+    :root {
+        --bg: #0a0e14;
+        --panel: #10151f;
+        --border: #1f2a3a;
+        --green: #00ff9c;
+        --red: #ff3b5c;
+        --text: #c9d6e3;
+        --muted: #5a6b80;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+        background: var(--bg);
+        color: var(--text);
+        font-family: "Consolas", "Courier New", monospace;
+        margin: 0;
+        padding: 24px;
+        background-image:
+            linear-gradient(rgba(0, 255, 156, 0.03) 1px, transparent 1px),
+            linear-gradient(90deg, rgba(0, 255, 156, 0.03) 1px, transparent 1px);
+        background-size: 24px 24px;
+    }
+
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 16px;
+        margin-bottom: 24px;
+    }
+
+    h1 {
+        font-size: 20px;
+        letter-spacing: 2px;
+        color: var(--green);
+        text-transform: uppercase;
+        margin: 0;
+    }
+
+    h1 span { color: var(--text); }
+
+    .status {
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .status .dot {
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--green);
+        margin-right: 6px;
+        box-shadow: 0 0 8px var(--green);
+        animation: pulse 1.5s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.3; }
+    }
+
+    .toolbar {
+        display: flex;
+        gap: 16px;
+        align-items: center;
+        margin-bottom: 24px;
+        flex-wrap: wrap;
+    }
+
+    button {
+        background: var(--panel);
+        border: 1px solid var(--green);
+        color: var(--green);
+        padding: 10px 20px;
+        font-family: inherit;
+        font-size: 13px;
+        letter-spacing: 1px;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: all 0.15s ease;
+    }
+
+    button:hover {
+        background: var(--green);
+        color: var(--bg);
+        box-shadow: 0 0 16px rgba(0, 255, 156, 0.4);
+    }
+
+    .metrics {
+        display: flex;
+        gap: 12px;
+    }
+
+    .metric {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        padding: 10px 16px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .metric strong {
+        display: block;
+        font-size: 18px;
+        color: var(--text);
+        margin-top: 4px;
+    }
+
+    .metric.alert strong { color: var(--red); }
+
+    .metric small {
+        display: block;
+        margin-top: 6px;
+        color: var(--muted);
+        font-size: 10px;
+        line-height: 1.3;
+    }
+
+    .slider-box {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        padding: 10px 16px;
+        font-size: 12px;
+        color: var(--muted);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+
+    .slider-box input[type="range"] {
+        accent-color: var(--green);
+    }
+
+    .slider-box span {
+        color: var(--green);
+        min-width: 28px;
+        text-align: center;
+    }
+
+    .toggle-box {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 12px;
+        color: var(--muted);
+    }
+
+    .grid {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 24px;
+    }
+
+    .panel {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 20px;
+        position: relative;
+    }
+
+    .panel::before {
+        content: attr(data-label);
+        position: absolute;
+        top: -10px;
+        left: 16px;
+        background: var(--bg);
+        padding: 0 8px;
+        font-size: 11px;
+        letter-spacing: 1px;
+        color: var(--muted);
+        text-transform: uppercase;
+    }
+
+    .panel-desc {
+        font-size: 11px;
+        color: var(--muted);
+        margin: 0 0 14px 0;
+        line-height: 1.4;
+    }
+
+    canvas {
+        max-height: 320px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    th, td {
+        text-align: left;
+        padding: 8px 10px;
+        border-bottom: 1px solid var(--border);
+    }
+
+    th {
+        color: var(--muted);
+        text-transform: uppercase;
+        font-size: 10px;
+        letter-spacing: 1px;
+    }
+
+    .sev {
+        padding: 2px 8px;
+        border-radius: 3px;
+        font-size: 10px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .sev-leve { background: rgba(255, 193, 7, 0.15); color: #ffc107; }
+    .sev-media { background: rgba(255, 138, 0, 0.15); color: #ff8a00; }
+    .sev-critica { background: rgba(255, 59, 92, 0.15); color: var(--red); }
+
+    .empty-row {
+        color: var(--muted);
+        text-align: center;
+        padding: 16px;
+    }
+
+    footer {
+        margin-top: 24px;
+        font-size: 11px;
+        color: var(--muted);
+        text-align: center;
+    }
+</style>
+</head>
+<body>
+
+<header>
+    <h1>NetGuard<span>::Anomaly Detection</span></h1>
+    <div class="status"><span class="dot"></span>MONITOR ACTIVO</div>
+</header>
+
+<div class="toolbar">
+    <button id="btn-refresh">⟳ Reescanear ahora</button>
+
+    <div class="toggle-box">
+        <input type="checkbox" id="chk-live" checked>
+        <label for="chk-live">Monitoreo en vivo</label>
+    </div>
+
+    <div class="slider-box">
+        Sensibilidad (σ)
+        <input type="range" id="sl-umbral" min="2" max="6" step="0.5" value="4">
+        <span id="sl-umbral-val">4.0</span>
+    </div>
+
+    <div class="metrics">
+        <div class="metric">
+            Umbral |f'(t)|<strong id="m-umbral">--</strong>
+            <small>Límite estadístico (media + σ·desviación). Si |f'(t)| lo supera, se marca como anomalía.</small>
+        </div>
+        <div class="metric alert">
+            Anomalías detectadas<strong id="m-anomalias">--</strong>
+            <small>Cantidad de instantes donde el cambio del tráfico fue anormalmente brusco.</small>
+        </div>
+        <div class="metric">
+            Puntos analizados<strong id="m-puntos">--</strong>
+            <small>Muestras de tiempo simuladas (resolución del análisis).</small>
+        </div>
+    </div>
+</div>
+
+<div class="grid">
+    <div class="panel" data-label="f(t) — Tráfico de red">
+        <p class="panel-desc">Tráfico de red simulado en el tiempo. La línea verde es el comportamiento normal (con ruido); los puntos rojos son los instantes marcados como ataque/anomalía.</p>
+        <canvas id="chart-f"></canvas>
+    </div>
+    <div class="panel" data-label="f'(t) — Derivada numérica (velocidad de cambio)">
+        <p class="panel-desc">Derivada de f(t): mide qué tan rápido cambia el tráfico en cada instante. Un cambio brusco (ataque) produce un pico en esta curva. Las líneas rojas punteadas son el umbral (+/-); cruzarlas dispara la alerta.</p>
+        <canvas id="chart-df"></canvas>
+    </div>
+    <div class="panel" data-label="Log de eventos detectados">
+        <p class="panel-desc">Registro de cada anomalía: el instante en que ocurrió, el valor de f'(t) en ese punto y su severidad según cuántas veces superó el umbral.</p>
+        <table id="tabla-eventos">
+            <thead>
+                <tr><th>Tiempo (s)</th><th>f'(t)</th><th>Severidad</th></tr>
+            </thead>
+            <tbody id="tabla-eventos-body"></tbody>
+        </table>
+    </div>
+</div>
+
+<footer>
+    f'(t) calculada por diferencias finitas centradas · Anomalía si |f'(t)| &gt; umbral (media + σ·desviación estándar)
+</footer>
+
+<script>
+const colorGreen = "#00ff9c";
+const colorRed = "#ff3b5c";
+const colorMuted = "#5a6b80";
+const colorGrid = "#1f2a3a";
+
+let chartF, chartDf;
+let intervaloVivo = null;
+const INTERVALO_MS = 2000;
+
+function baseOptions(extra) {
+    return Object.assign({
+        responsive: true,
+        animation: false,
+        plugins: {
+            legend: { labels: { color: "#c9d6e3", font: { family: "Consolas" } } }
+        },
+        scales: {
+            x: {
+                ticks: { color: colorMuted },
+                grid: { color: colorGrid }
+            },
+            y: {
+                ticks: { color: colorMuted },
+                grid: { color: colorGrid }
+            }
+        }
+    }, extra || {});
+}
+
+function pintarTablaEventos(eventos) {
+    const tbody = document.getElementById("tabla-eventos-body");
+    tbody.innerHTML = "";
+
+    if (eventos.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="3" class="empty-row">Sin anomalías en este escaneo</td></tr>';
+        return;
+    }
+
+    eventos.forEach(ev => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <td>${ev.tiempo.toFixed(1)}</td>
+            <td>${ev.valor_derivada.toFixed(2)}</td>
+            <td><span class="sev sev-${ev.severidad}">${ev.severidad}</span></td>
+        `;
+        tbody.appendChild(tr);
+    });
+}
+
+async function cargarDatos() {
+    const umbralSigma = document.getElementById("sl-umbral").value;
+    const res = await fetch(`/api/datos?umbral_sigma=${umbralSigma}`);
+    const data = await res.json();
+
+    const labels = data.t.map(v => v.toFixed(1));
+    const anomaliaSet = new Set(data.anomalias);
+
+    document.getElementById("m-umbral").textContent = data.umbral.toFixed(2);
+    document.getElementById("m-anomalias").textContent = data.anomalias.length;
+    document.getElementById("m-puntos").textContent = data.t.length;
+
+    pintarTablaEventos(data.eventos);
+
+    if (chartF) chartF.destroy();
+    chartF = new Chart(document.getElementById("chart-f"), {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "f(t) tráfico",
+                    data: data.f,
+                    borderColor: colorGreen,
+                    backgroundColor: "transparent",
+                    borderWidth: 1.5,
+                    pointRadius: (ctx) => anomaliaSet.has(ctx.dataIndex) ? 5 : 0,
+                    pointBackgroundColor: colorRed,
+                    pointBorderColor: colorRed,
+                    tension: 0.2
+                }
+            ]
+        },
+        options: baseOptions()
+    });
+
+    if (chartDf) chartDf.destroy();
+    chartDf = new Chart(document.getElementById("chart-df"), {
+        type: "line",
+        data: {
+            labels: labels,
+            datasets: [
+                {
+                    label: "f'(t)",
+                    data: data.df,
+                    borderColor: "#3aa6ff",
+                    backgroundColor: "transparent",
+                    borderWidth: 1.5,
+                    pointRadius: (ctx) => anomaliaSet.has(ctx.dataIndex) ? 5 : 0,
+                    pointBackgroundColor: colorRed,
+                    pointBorderColor: colorRed,
+                    tension: 0.2
+                },
+                {
+                    label: "+umbral",
+                    data: data.t.map(() => data.umbral),
+                    borderColor: colorRed,
+                    borderDash: [6, 4],
+                    borderWidth: 1,
+                    pointRadius: 0
+                },
+                {
+                    label: "-umbral",
+                    data: data.t.map(() => -data.umbral),
+                    borderColor: colorRed,
+                    borderDash: [6, 4],
+                    borderWidth: 1,
+                    pointRadius: 0
+                }
+            ]
+        },
+        options: baseOptions()
+    });
+}
+
+function iniciarModoVivo() {
+    if (intervaloVivo) clearInterval(intervaloVivo);
+    intervaloVivo = setInterval(cargarDatos, INTERVALO_MS);
+}
+
+function detenerModoVivo() {
+    if (intervaloVivo) clearInterval(intervaloVivo);
+    intervaloVivo = null;
+}
+
+document.getElementById("btn-refresh").addEventListener("click", cargarDatos);
+
+document.getElementById("sl-umbral").addEventListener("input", (e) => {
+    document.getElementById("sl-umbral-val").textContent = parseFloat(e.target.value).toFixed(1);
+});
+document.getElementById("sl-umbral").addEventListener("change", cargarDatos);
+
+document.getElementById("chk-live").addEventListener("change", (e) => {
+    if (e.target.checked) {
+        iniciarModoVivo();
+    } else {
+        detenerModoVivo();
+    }
+});
+
+cargarDatos();
+iniciarModoVivo();
+</script>
+
+</body>
+</html>
